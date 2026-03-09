@@ -1,0 +1,13 @@
+global:
+  scrape_interval: 30s
+  evaluation_interval: 30s
+
+scrape_configs:
+  - job_name: "mont-vert-api"
+    static_configs:
+      - targets: ["api:8000"]
+
+  - job_name: "mont-vert-monitoring"
+    static_configs:
+      # host.docker.internal permet d'accéder au laptop depuis Docker
+      - targets: ["host.docker.internal:8001"]

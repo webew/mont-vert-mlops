@@ -1,0 +1,123 @@
+services:
+    # --- STOCKAGE ---
+    minio:
+        image: minio/minio
+        ports:
+            - "9000:9000"
+            - "9001:9001"
+        environment:
+            MINIO_ROOT_USER: minioadmin
+            MINIO_ROOT_PASSWORD: minioadmin
+        command: server /data --console-address ":9001"
+        volumes:
+            - minio_data:/data
+        healthcheck:
+            test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
+            interval: 10s
+            timeout: 5s
+            retries: 5
+
+    # --- BASE DE DONNÉES (MLflow + Airflow) ---
+    postgres:
+        image: postgres:15
+        environment:
+            POSTGRES_USER: mlflow
+            POSTGRES_PASSWORD: mlflow
+            POSTGRES_DB: mlflow
+            POSTGRES_MULTIPLE_DATABASES: mlflow,airflow
+        volumes:
+            - postgres_data:/var/lib/postgresql/data
+            - ./init-db.sh:/docker-entrypoint-initdb.d/init-db.sh
+        healthcheck:
+            test: ["CMD-SHELL", "pg_isready -U mlflow"]
+            interval: 10s
+            timeout: 5s
+            retries: 5
+
+    # --- ML TRACKING ---
+    mlflow:
+        image: ghcr.io/mlflow/mlflow:v3.1.0
+        ports:
+            - "5001:5000"
+        environment:
+            - MLFLOW_S3_ENDPOINT_URL=http://minio:9000
+            - AWS_ACCESS_KEY_ID=minioadmin
+            - AWS_SECRET_ACCESS_KEY=minioadmin
+        command: bash -c "pip install psycopg2-binary boto3 && mlflow server --backend-store-uri postgresql://mlflow:mlflow@postgres/mlflow --default-artifact-root s3://mont-vert/mlflow --host 0.0.0.0"
+        depends_on:
+            postgres:
+                condition: service_healthy
+            minio:
+                condition: service_healthy
+
+    # --- SERVING ---
+    api:
+        build: ./api
+        ports:
+            - "8000:8000"
+        environment:
+            - MLFLOW_TRACKING_URI=http://mlflow:5000
+            - MLFLOW_S3_ENDPOINT_URL=http://minio:9000
+            - AWS_ACCESS_KEY_ID=minioadmin
+            - AWS_SECRET_ACCESS_KEY=minioadmin
+            - S3_BUCKET=mont-vert
+        depends_on:
+            - mlflow
+
+    # --- ORCHESTRATION ---
+    airflow:
+        build: ./airflow
+        ports:
+            - "8080:8080"
+        environment:
+            - AIRFLOW__CORE__EXECUTOR=LocalExecutor
+            - AIRFLOW__DATABASE__SQL_ALCHEMY_CONN=postgresql+psycopg2://mlflow:mlflow@postgres/airflow
+            - AIRFLOW__CORE__LOAD_EXAMPLES=false
+            - AIRFLOW__WEBSERVER__SECRET_KEY=mont-vert-secret
+            - MINIO_ENDPOINT=http://minio:9000
+            - AWS_ACCESS_KEY_ID=minioadmin
+            - AWS_SECRET_ACCESS_KEY=minioadmin
+            - S3_BUCKET=mont-vert
+            - _AIRFLOW_DB_MIGRATE=true
+            - _AIRFLOW_WWW_USER_CREATE=true
+            - _AIRFLOW_WWW_USER_USERNAME=admin
+            - _AIRFLOW_WWW_USER_PASSWORD=admin
+        volumes:
+            - ./airflow/dags:/opt/airflow/dags
+            - ./data:/opt/airflow/project/data
+            - ./spark:/opt/airflow/project/spark
+            - ./training:/opt/airflow/project/training
+            - ./monitoring:/opt/airflow/project/monitoring
+        command: standalone
+        depends_on:
+            postgres:
+                condition: service_healthy
+
+    # --- MONITORING ---
+    prometheus:
+        image: prom/prometheus
+        ports:
+            - "9090:9090"
+        volumes:
+            - ./monitoring/prometheus.yml:/etc/prometheus/prometheus.yml
+        command:
+            - "--config.file=/etc/prometheus/prometheus.yml"
+            - "--storage.tsdb.path=/prometheus"
+
+    grafana:
+        image: grafana/grafana
+        ports:
+            - "3000:3000"
+        environment:
+            - GF_SECURITY_ADMIN_PASSWORD=admin
+            - GF_USERS_ALLOW_SIGN_UP=false
+        volumes:
+            - grafana_data:/var/lib/grafana
+            - ./monitoring/grafana/provisioning:/etc/grafana/provisioning
+        depends_on:
+            - prometheus
+
+volumes:
+    minio_data:
+    postgres_data:
+    grafana_data:

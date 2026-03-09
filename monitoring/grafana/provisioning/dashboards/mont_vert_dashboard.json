@@ -1,0 +1,98 @@
+{
+  "title": "Mont Vert — Monitoring MLOps",
+  "uid": "mont-vert-mlops",
+  "schemaVersion": 36,
+  "version": 1,
+  "refresh": "30s",
+  "panels": [
+    {
+      "id": 1,
+      "title": "Drift Score Global",
+      "type": "gauge",
+      "gridPos": { "x": 0, "y": 0, "w": 6, "h": 8 },
+      "options": {
+        "reduceOptions": { "calcs": ["lastNotNull"] },
+        "minVizWidth": 75,
+        "minVizHeight": 75
+      },
+      "fieldConfig": {
+        "defaults": {
+          "min": 0, "max": 1,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "green", "value": null },
+              { "color": "orange", "value": 0.3 },
+              { "color": "red", "value": 0.5 }
+            ]
+          }
+        }
+      },
+      "targets": [
+        {
+          "expr": "mont_vert_drift_score",
+          "legendFormat": "Drift Score"
+        }
+      ]
+    },
+    {
+      "id": 2,
+      "title": "Features en Drift",
+      "type": "stat",
+      "gridPos": { "x": 6, "y": 0, "w": 6, "h": 8 },
+      "options": {
+        "reduceOptions": { "calcs": ["lastNotNull"] },
+        "colorMode": "background"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "green", "value": null },
+              { "color": "orange", "value": 2 },
+              { "color": "red", "value": 4 }
+            ]
+          }
+        }
+      },
+      "targets": [
+        {
+          "expr": "mont_vert_features_drifted",
+          "legendFormat": "Features en drift"
+        }
+      ]
+    },
+    {
+      "id": 3,
+      "title": "Évolution du Drift dans le temps",
+      "type": "timeseries",
+      "gridPos": { "x": 0, "y": 8, "w": 24, "h": 10 },
+      "options": {
+        "legend": { "displayMode": "list", "placement": "bottom" }
+      },
+      "fieldConfig": {
+        "defaults": {
+          "min": 0, "max": 1,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "green", "value": null },
+              { "color": "red", "value": 0.5 }
+            ]
+          }
+        }
+      },
+      "targets": [
+        {
+          "expr": "mont_vert_drift_score",
+          "legendFormat": "Drift Score"
+        },
+        {
+          "expr": "mont_vert_features_drifted / 9",
+          "legendFormat": "Part features driftées"
+        }
+      ]
+    }
+  ]
+}
