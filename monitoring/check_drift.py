@@ -96,7 +96,7 @@ def run_monitoring(reference, drift_factor):
 
     print(f"  drift_factor={drift_factor:.1f} | score={share:.2f} | features_en_drift={n_drifted}")
 
-    if share > 0.5:
+    if share > 0.4:
         print("  ⚠️  ALERTE : drift majeur détecté ! Réentraîner le modèle.")
 
     return share
@@ -115,4 +115,4 @@ if __name__ == "__main__":
     while True:
         run_monitoring(reference, drift_factor)
         drift_factor = min(drift_factor + 0.1, 2.0)
-        time.sleep(30)
+        time.sleep(2)
