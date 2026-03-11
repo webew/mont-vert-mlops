@@ -17,9 +17,9 @@ from dotenv import load_dotenv
 load_dotenv()
 
 # Configuration MLflow
-mlflow.set_tracking_uri(os.getenv("MLFLOW_TRACKING_URI", "http://localhost:5000"))
+mlflow.set_tracking_uri(os.getenv("MLFLOW_TRACKING_URI", os.getenv("MLFLOW_TRACKING_URI", "http://localhost:5001")))
 mlflow.set_experiment("mont-vert-repas")
-
+print('Experiment ok')
 # Lecture des données depuis MinIO
 s3 = boto3.client(
     "s3",
